@@ -7,7 +7,13 @@
     "numReplicas": 1,
     "sleepApplication": false,
     "restartPolicyType": "always",
-    "restartPolicyMaxRetries": 5
+    "restartPolicyMaxRetries": 5,
+    "healthcheck": {
+      "path": "/health",
+      "interval": 30,
+      "timeout": 5,
+      "retries": 3
+    }
   },
   "environmentVariables": {
     "RAILWAY_ENVIRONMENT": "production",
@@ -17,6 +23,8 @@
     "REMINDER_DAY": "20",
     "REMINDER_TIME": "09:00",
     "BUSINESS_NAME": "The Nutrition Hut",
-    "USE_AI": "false"
+    "USE_AI": "false",
+    "PYTHONUNBUFFERED": "1",
+    "PYTHONDONTWRITEBYTECODE": "1"
   }
 }

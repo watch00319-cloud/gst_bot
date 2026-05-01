@@ -115,11 +115,6 @@ class GSTBot:
             # Add handlers
             self._setup_handlers()
             
-            logger.info("Bot initialized successfully with handlers:")
-            logger.info("  - Command handlers: start, help, status, filegst, history, settings")
-            logger.info("  - Callback handlers: activity_no, activity_has, cancel")
-            logger.info("  - Message handler: text input")
-            logger.info("  - Error handler: global error handling")
             
             return True
         
@@ -565,7 +560,7 @@ Settings update feature coming soon! 🚧"""
         """Handle errors"""
         logger.error(f"Update {update} caused error {context.error}")
     
-    async def run(self) -> None:
+    def run(self) -> None:
         """Run the bot"""
         try:
             if not self.app:
@@ -580,28 +575,23 @@ Settings update feature coming soon! 🚧"""
             
             # Start polling with error handling
             logger.info("Bot is running and waiting for updates...")
-            await self.app.run_polling(drop_pending_updates=True)
+            self.app.run_polling(drop_pending_updates=True)
         
         except Exception as e:
             logger.error(f"Error running bot: {e}", exc_info=True)
         
         finally:
             logger.info("Shutting down bot...")
-            try:
-                if self.app:
-                    await self.app.stop()
-                    logger.info("Bot stopped successfully")
-            except Exception as e:
-                logger.error(f"Error stopping bot: {e}")
-            finally:
-                scheduler.stop()
-                logger.info("Scheduler stopped")
+            scheduler.stop()
+            logger.info("Scheduler stopped")
     
-    async def stop(self) -> None:
+    def stop(self) -> None:
         """Stop the bot"""
         try:
             if self.app:
-                await self.app.stop()
+                # In polling mode, we usually don't need to manually stop 
+                # if we're using run_polling() as it handles its own shutdown
+                pass
             
             scheduler.stop()
             logger.info("Bot stopped")
@@ -619,24 +609,24 @@ async def initialize_bot(token: str) -> bool:
     global bot
     try:
         bot = GSTBot(token)
-        return await bot.initialize()
+        return bot.initialize()
     except Exception as e:
         logger.error(f"Error initializing bot: {e}")
         return False
 
 
-async def run_bot() -> None:
+def run_bot() -> None:
     """Run global bot instance"""
     global bot
     if bot:
-        await bot.run()
+        bot.run()
 
 
-async def stop_bot() -> None:
+def stop_bot() -> None:
     """Stop global bot instance"""
     global bot
     if bot:
-        await bot.stop()
+        bot.stop()
 
 
 async def send_reminder_message(user_id: int) -> None:

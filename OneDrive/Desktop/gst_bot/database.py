@@ -429,5 +429,5 @@ class DatabaseManager:
             conn.close()
 
 
-# Global database instance
+# Global database instance - will be updated in app.py with proper path
 db = DatabaseManager()

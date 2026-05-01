@@ -1,0 +1,58 @@
+ERROR - Error running bot: Cannot close a running event loop
+Traceback (most recent call last):
+  File "C:\Users\thenu\AppData\Local\Programs\Python\Python312\Lib\site-packages\telegram\ext\_application.py", line 1006, in __run
+    raise exc
+  File "C:\Users\thenu\AppData\Local\Programs\Python\Python312\Lib\site-packages\telegram\ext\_application.py", line 995, in __run
+    loop.run_until_complete(self.initialize())
+  File "C:\Users\thenu\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 667, in run_until_complete
+    self._check_running()
+  File "C:\Users\thenu\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 626, in _check_running
+    raise RuntimeError('This event loop is already running')
+RuntimeError: This event loop is already running
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\thenu\AppData\Local\Programs\Python\Python312\Lib\site-packages\telegram\ext\_application.py", line 1017, in __run
+    loop.run_until_complete(self.shutdown())
+  File "C:\Users\thenu\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 667, in run_until_complete
+    self._check_running()
+  File "C:\Users\thenu\AppData\Local\Programs\Python\Python312\Lib\asyncio\base_events.py", line 626, in _check_running
+    raise RuntimeError('This event loop is already running')
+RuntimeError: This event loop is already running
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\thenu\OneDrive\Desktop\gst_bot\bot.py", line 578, in run
+    await self.app.run_polling(drop_pending_updates=True)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\thenu\AppData\Local\Programs\Python\Python312\Lib\site-packages\telegram\ext\_application.py", line 818, in run_polling
+    return self.__run(
+           ^^^^^^^^^^^
+  File "C:\Users\thenu\AppData\Local\Programs\Python\Python312\Lib\site-packages\telegram\ext\_application.py", line 1022, in __run
+    loop.close()
+  File "C:\Users\thenu\AppData\Local\Programs\Python\Python312\Lib\asyncio\proactor_events.py", line 687, in close
+    raise RuntimeError("Cannot close a running event loop")
+RuntimeError: Cannot close a running event loop
+ERROR - Error stopping bot: This Application is not running!
+ERROR - Error starting scheduler: There is no current event loop in thread 'MainThread'.
+ERROR - Error running bot: There is no current event loop in thread 'MainThread'.
+Traceback (most recent call last):
+  File "C:\Users\thenu\OneDrive\Desktop\gst_bot\bot.py", line 578, in run
+    self.app.run_polling(drop_pending_updates=True)
+  File "C:\Users\thenu\AppData\Local\Programs\Python\Python312\Lib\site-packages\telegram\ext\_application.py", line 818, in run_polling
+    return self.__run(
+           ^^^^^^^^^^^
+  File "C:\Users\thenu\AppData\Local\Programs\Python\Python312\Lib\site-packages\telegram\ext\_application.py", line 977, in __run
+    loop = asyncio.get_event_loop()
+           ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\thenu\AppData\Local\Programs\Python\Python312\Lib\asyncio\events.py", line 702, in get_event_loop
+    raise RuntimeError('There is no current event loop in thread %r.'
+RuntimeError: There is no current event loop in thread 'MainThread'.
+WARNING - Validating configuration...
+WARNING - Setting up environment...
+WARNING - Screenshots directory ready: screenshots
+WARNING - Logs directory ready: logs
+WARNING - Database directory ready: data
+WARNING - Initializing database...

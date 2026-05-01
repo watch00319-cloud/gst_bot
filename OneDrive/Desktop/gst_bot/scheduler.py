@@ -78,8 +78,6 @@ class GSTScheduler:
             self.scheduler.start()
             self.is_running = True
             
-            logger.info("Scheduler started successfully")
-            logger.info(f"Reminder scheduled for day {config.REMINDER_DAY} at {config.REMINDER_TIME}")
             
             return True
         
