@@ -553,15 +553,12 @@ Settings update feature coming soon! 🚧"""
             scheduler.start()
             
             logger.info("Bot is running...")
-            await self.app.initialize()
             await self.app.run_polling()
         
         except Exception as e:
             logger.error(f"Error running bot: {e}")
         
         finally:
-            if self.app:
-                await self.app.shutdown()
             scheduler.stop()
 
     
