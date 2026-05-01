@@ -15,7 +15,7 @@ class Config:
     
     # Telegram Bot Configuration
     TELEGRAM_BOT_TOKEN: str = os.getenv("TELEGRAM_BOT_TOKEN", "")
-    AUTHORIZED_USER_ID: int = int(os.getenv("AUTHORIZED_USER_ID", "0"))
+    AUTHORIZED_USER_ID: int = int(v) if (v := os.getenv("AUTHORIZED_USER_ID", "0")).lstrip("-").isdigit() else 0
     
     # GST Portal Credentials (encrypted)
     GST_PORTAL_USERNAME: str = os.getenv("GST_PORTAL_USERNAME", "")
