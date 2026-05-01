@@ -5,8 +5,7 @@ Handles bot commands and user interactions
 
 import logging
 from typing import Optional
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.constants import ChatAction
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatAction
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler, MessageHandler,
     ContextTypes, filters, ConversationHandler
@@ -102,7 +101,7 @@ class GSTBot:
         self.app: Optional[Application] = None
         self.encryption_helper = EncryptionHelper(config.ENCRYPTION_KEY)
     
-    async def initialize(self) -> bool:
+    def initialize(self) -> bool:
         """
         Initialize bot application
         
@@ -549,21 +548,23 @@ Settings update feature coming soon! 🚧"""
                 logger.error("Bot not initialized")
                 return
             
-            # Start scheduler
+            # Start scheduler in background
             scheduler.start()
             
             logger.info("Bot is running...")
-            await self.app.initialize()
-            await self.app.run_polling()
+            await self.app.run_polling(drop_pending_updates=True)
         
         except Exception as e:
             logger.error(f"Error running bot: {e}")
         
         finally:
-            if self.app:
-                await self.app.shutdown()
-            scheduler.stop()
-
+            try:
+                if self.app:
+                    await self.app.stop()
+            except Exception as e:
+                logger.error(f"Error stopping bot: {e}")
+            finally:
+                scheduler.stop()
     
     async def stop(self) -> None:
         """Stop the bot"""
