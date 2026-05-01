@@ -102,7 +102,7 @@ class GSTBot:
         self.app: Optional[Application] = None
         self.encryption_helper = EncryptionHelper(config.ENCRYPTION_KEY)
     
-    async def initialize(self) -> bool:
+    def initialize(self) -> bool:
         """
         Initialize bot application
         
@@ -115,11 +115,6 @@ class GSTBot:
             # Add handlers
             self._setup_handlers()
             
-            logger.info("Bot initialized successfully with handlers:")
-            logger.info("  - Command handlers: start, help, status, filegst, history, settings")
-            logger.info("  - Callback handlers: activity_no, activity_has, cancel")
-            logger.info("  - Message handler: text input")
-            logger.info("  - Error handler: global error handling")
             
             return True
         

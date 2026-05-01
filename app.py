@@ -6,17 +6,16 @@ Initializes and runs the Telegram bot with Railway hosting support
 import logging
 import asyncio
 import sys
-import os
 from pathlib import Path
 from config import config
 from database import db
 from bot import initialize_bot, run_bot, stop_bot
 from scheduler import scheduler
 
-# Setup logging
+# Setup logging - reduced verbosity for production
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.WARNING,
+    format='%(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
         logging.FileHandler('gst_bot.log')
@@ -55,7 +54,7 @@ async def setup_environment() -> bool:
     try:
         logger.info("Setting up environment...")
         
-        # Create screenshots directory if not exists
+        # Create necessary directories if not exists
         screenshots_dir = Path("screenshots")
         screenshots_dir.mkdir(exist_ok=True)
         logger.info(f"Screenshots directory ready: {screenshots_dir}")
@@ -64,6 +63,15 @@ async def setup_environment() -> bool:
         logs_dir = Path("logs")
         logs_dir.mkdir(exist_ok=True)
         logger.info(f"Logs directory ready: {logs_dir}")
+        
+        # Ensure database directory exists and is writable
+        db_dir = Path("data")
+        db_dir.mkdir(exist_ok=True)
+        logger.info(f"Database directory ready: {db_dir}")
+        
+        # Update database path to use data directory for persistence
+        from database import DatabaseManager
+        db = DatabaseManager("data/gst_bot.db")
         
         # Initialize database
         logger.info("Initializing database...")
@@ -88,46 +96,20 @@ async def setup_environment() -> bool:
 async def main() -> None:
     """Main application function"""
     try:
-        # Banner
-        banner = """
-╔══════════════════════════════════════════════════════════════╗
-║                 GST Nil Return Bot v1.0                      ║
-║              For: The Nutrition Hut                          ║
-║           Powered by Python + Telegram + Railway             ║
-╚══════════════════════════════════════════════════════════════╝
-        """
-        logger.info(banner)
-        
         # Validate configuration
         if not await validate_configuration():
-            logger.error("❌ Configuration validation failed")
+            logger.error("Configuration validation failed")
             sys.exit(1)
         
         # Setup environment
         if not await setup_environment():
-            logger.error("❌ Environment setup failed")
+            logger.error("Environment setup failed")
             sys.exit(1)
-        
-        # Log application details
-        logger.info(f"Business Name: {config.BUSINESS_NAME}")
-        logger.info(f"GSTIN: {config.GSTIN}")
-        logger.info(f"Environment: {'Production' if config.is_production else 'Development'}")
-        logger.info(f"Reminder Day: {config.REMINDER_DAY}")
-        logger.info(f"Reminder Time: {config.REMINDER_TIME}")
-        logger.info(f"Database: {config.DATABASE_URL}")
         
         # Initialize bot
-        logger.info("Initializing Telegram bot...")
         if not await initialize_bot(config.TELEGRAM_BOT_TOKEN):
-            logger.error("❌ Failed to initialize bot")
+            logger.error("Bot initialization failed")
             sys.exit(1)
-        
-        logger.info("✅ Bot initialized successfully")
-        
-        # Log startup info
-        logger.info(f"Authorized User ID: {config.AUTHORIZED_USER_ID}")
-        logger.info("🚀 Starting bot...")
-        logger.info("=" * 60)
         
         # Run bot
         await run_bot()
