@@ -5,7 +5,8 @@ Handles bot commands and user interactions
 
 import logging
 from typing import Optional
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatAction
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.constants import ChatAction
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler, MessageHandler,
     ContextTypes, filters, ConversationHandler
@@ -101,7 +102,7 @@ class GSTBot:
         self.app: Optional[Application] = None
         self.encryption_helper = EncryptionHelper(config.ENCRYPTION_KEY)
     
-    def initialize(self) -> bool:
+    async def initialize(self) -> bool:
         """
         Initialize bot application
         
