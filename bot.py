@@ -102,7 +102,7 @@ class GSTBot:
         self.app: Optional[Application] = None
         self.encryption_helper = EncryptionHelper(config.ENCRYPTION_KEY)
     
-    async def initialize(self) -> bool:
+    def initialize(self) -> bool:
         """
         Initialize bot application
         
@@ -115,11 +115,16 @@ class GSTBot:
             # Add handlers
             self._setup_handlers()
             
-            logger.info("Bot initialized successfully")
+            logger.info("Bot initialized successfully with handlers:")
+            logger.info("  - Command handlers: start, help, status, filegst, history, settings")
+            logger.info("  - Callback handlers: activity_no, activity_has, cancel")
+            logger.info("  - Message handler: text input")
+            logger.info("  - Error handler: global error handling")
+            
             return True
         
         except Exception as e:
-            logger.error(f"Error initializing bot: {e}")
+            logger.error(f"Error initializing bot: {e}", exc_info=True)
             return False
     
     def _setup_handlers(self) -> None:
@@ -162,12 +167,15 @@ class GSTBot:
     async def cmd_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /start command"""
         try:
-            if not await self.check_auth(update.effective_user.id):
+            user = update.effective_user
+            logger.info(f"/start command received from user {user.id} ({user.username or 'No username'})")
+            
+            if not await self.check_auth(user.id):
+                logger.warning(f"Unauthorized /start attempt from user {user.id}")
                 await update.message.reply_text(MESSAGES["unauthorized"])
                 return
             
             # Add or update user in database
-            user = update.effective_user
             db.add_user(
                 telegram_id=user.id,
                 username=user.username or "",
@@ -178,24 +186,29 @@ class GSTBot:
             db.log_activity(user.id, "bot_start")
             
             await update.message.reply_text(MESSAGES["start"])
-            logger.info(f"Bot started by user {user.id}")
+            logger.info(f"Bot started successfully by user {user.id}")
         
         except Exception as e:
-            logger.error(f"Error in cmd_start: {e}")
+            logger.error(f"Error in cmd_start: {e}", exc_info=True)
             await update.message.reply_text(f"{MESSAGES['error'].format(error=str(e))}")
     
     async def cmd_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /help command"""
         try:
-            if not await self.check_auth(update.effective_user.id):
+            user = update.effective_user
+            logger.info(f"/help command received from user {user.id} ({user.username or 'No username'})")
+            
+            if not await self.check_auth(user.id):
+                logger.warning(f"Unauthorized /help attempt from user {user.id}")
                 await update.message.reply_text(MESSAGES["unauthorized"])
                 return
             
             await update.message.reply_text(MESSAGES["help"])
-            db.log_activity(update.effective_user.id, "help_requested")
+            db.log_activity(user.id, "help_requested")
+            logger.info(f"Help displayed to user {user.id}")
         
         except Exception as e:
-            logger.error(f"Error in cmd_help: {e}")
+            logger.error(f"Error in cmd_help: {e}", exc_info=True)
             await update.message.reply_text(f"{MESSAGES['error'].format(error=str(e))}")
     
     async def cmd_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -375,7 +388,14 @@ class GSTBot:
     async def msg_handle(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
         """Handle text messages"""
         try:
-            if not await self.check_auth(update.effective_user.id):
+            user = update.effective_user
+            message_text = update.message.text
+            
+            # Log all incoming messages
+            logger.info(f"Message received from user {user.id} ({user.username or 'No username'}): {message_text}")
+            
+            if not await self.check_auth(user.id):
+                logger.warning(f"Unauthorized message from user {user.id}")
                 await update.message.reply_text(MESSAGES["unauthorized"])
                 return ConversationHandler.END
             
@@ -383,12 +403,15 @@ class GSTBot:
             
             # Check if waiting for OTP
             if context._state.get("waiting_for") == WAITING_FOR_OTP or "workflow" in context.user_data:
+                logger.info(f"OTP input received from user {user.id}")
                 return await self._handle_otp_input(update, context)
             
+            # Default response for non-command messages
+            await update.message.reply_text("I don't understand that command. Use /help to see available commands.")
             return ConversationHandler.END
         
         except Exception as e:
-            logger.error(f"Error in msg_handle: {e}")
+            logger.error(f"Error in msg_handle: {e}", exc_info=True)
             await update.message.reply_text(f"{MESSAGES['error'].format(error=str(e))}")
             return ConversationHandler.END
     
@@ -549,18 +572,30 @@ Settings update feature coming soon! 🚧"""
                 logger.error("Bot not initialized")
                 return
             
+            logger.info("Starting bot polling...")
+            
             # Start scheduler in background
             scheduler.start()
+            logger.info("Scheduler started successfully")
             
-            logger.info("Bot is running...")
+            # Start polling with error handling
+            logger.info("Bot is running and waiting for updates...")
             await self.app.run_polling(drop_pending_updates=True)
         
         except Exception as e:
-            logger.error(f"Error running bot: {e}")
+            logger.error(f"Error running bot: {e}", exc_info=True)
         
         finally:
-            scheduler.stop()
-
+            logger.info("Shutting down bot...")
+            try:
+                if self.app:
+                    await self.app.stop()
+                    logger.info("Bot stopped successfully")
+            except Exception as e:
+                logger.error(f"Error stopping bot: {e}")
+            finally:
+                scheduler.stop()
+                logger.info("Scheduler stopped")
     
     async def stop(self) -> None:
         """Stop the bot"""

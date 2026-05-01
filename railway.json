@@ -1,5 +1,8 @@
 {
   "$schema": "https://railway.app/schema.json",
+  "build": {
+    "builder": "DOCKERFILE"
+  },
   "deploy": {
     "numReplicas": 1,
     "sleepApplication": false,
