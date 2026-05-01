@@ -102,7 +102,7 @@ class GSTBot:
         self.app: Optional[Application] = None
         self.encryption_helper = EncryptionHelper(config.ENCRYPTION_KEY)
     
-    async def initialize(self) -> bool:
+    def initialize(self) -> bool:
         """
         Initialize bot application
         

@@ -7,6 +7,10 @@ import os
 from dataclasses import dataclass
 from typing import Optional
 from cryptography.fernet import Fernet
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 @dataclass
