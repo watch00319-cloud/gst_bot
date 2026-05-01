@@ -559,13 +559,8 @@ Settings update feature coming soon! 🚧"""
             logger.error(f"Error running bot: {e}")
         
         finally:
-            try:
-                if self.app:
-                    await self.app.stop()
-            except Exception as e:
-                logger.error(f"Error stopping bot: {e}")
-            finally:
-                scheduler.stop()
+            scheduler.stop()
+
     
     async def stop(self) -> None:
         """Stop the bot"""
