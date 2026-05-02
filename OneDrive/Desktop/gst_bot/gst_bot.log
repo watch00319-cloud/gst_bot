@@ -56,3 +56,99 @@ WARNING - Screenshots directory ready: screenshots
 WARNING - Logs directory ready: logs
 WARNING - Database directory ready: data
 WARNING - Initializing database...
+WARNING - Unauthorized access attempt from user 6876286601
+WARNING - Unauthorized /start attempt from user 6876286601
+WARNING - Validating configuration...
+WARNING - Setting up environment...
+WARNING - Screenshots directory ready: screenshots
+WARNING - Logs directory ready: logs
+WARNING - Database directory ready: data
+WARNING - Initializing database...
+ERROR - Error in msg_handle: 'CallbackContext' object has no attribute '_state'
+Traceback (most recent call last):
+  File "C:\Users\thenu\OneDrive\Desktop\gst_bot\bot.py", line 400, in msg_handle
+    if context._state.get("waiting_for") == WAITING_FOR_OTP or "workflow" in context.user_data:
+       ^^^^^^^^^^^^^^
+AttributeError: 'CallbackContext' object has no attribute '_state'
+WARNING - Run time of job "Clean expired OTP sessions (trigger: cron[hour='2', minute='0'], next run at: 2026-05-03 02:00:00 IST)" was missed by 5:45:11.810606
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+WARNING - Validating configuration...
+WARNING - Setting up environment...
+WARNING - Screenshots directory ready: screenshots
+WARNING - Logs directory ready: logs
+WARNING - Database directory ready: data
+WARNING - Initializing database...
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Update None caused error Conflict: terminated by other getUpdates request; make sure that only one bot instance is running
+ERROR - Error while getting Updates: Conflict: terminated by other getUpdates request; make sure that only one bot instance is running

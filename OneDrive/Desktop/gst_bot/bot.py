@@ -4,9 +4,9 @@ Handles bot commands and user interactions
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Dict, Any
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.constants import ChatAction
+from telegram.constants import ParseMode, ChatAction
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler, MessageHandler,
     ContextTypes, filters, ConversationHandler
@@ -17,6 +17,7 @@ from database import db
 from otp_handler import otp_handler
 from nil_return import NilReturnWorkflow, get_or_create_workflow, cleanup_workflow
 from scheduler import scheduler
+from messages import get_text
 import asyncio
 
 logger = logging.getLogger(__name__)
@@ -26,540 +27,281 @@ WAITING_FOR_ACTIVITY = 1
 WAITING_FOR_OTP = 2
 CONFIRMING_ACTION = 3
 
-# Message templates
-MESSAGES = {
-    "start": """नमस्ते! 🙏
-    
-मैं GST Nil Return Bot हूँ, "The Nutrition Hut" के लिए।
-
-मैं आपको monthly GST nil returns filing में मदद करता हूँ।
-
-/help - सभी commands देखने के लिए
-/status - current GST status
-/filegst - GST nil return file करें
-/settings - settings update करें""",
-    
-    "help": """📋 Available Commands:
-
-/start - Bot को शुरू करें
-/help - यह message
-/status - GST filing status देखें
-/filegst - Nil return file करें
-/history - पिछली filings देखें
-/settings - सेटिंग्स को configure करें
-
-🔒 सभी data encrypted रहता है।
-केवल authorized user ही access कर सकते हैं।""",
-    
-    "activity_prompt": """यह महीना क्या है - क्या कोई sale या purchase की activity है?""",
-    
-    "no_activity": """✅ कोई activity नहीं है।
-
-अब Nil Return file करते हैं...
-GST portal login हो रहे हैं...⏳""",
-    
-    "otp_prompt": """OTP भेजो जो GST portal से आया है।
-
-(OTP 6-digit number है)
-(Timeout: 10 minutes)""",
-    
-    "otp_verified": """✅ OTP verified!
-
-Nil Return submit हो रहा है...⏳""",
-    
-    "success": """✅ Nil Return successfully file हो गई!
-
-📄 Details:
-• Month: {month}
-• Year: {year}
-• ARN: {arn}
-• Submitted: {date}
-
-Screenshot भी save हो गया है।""",
-    
-    "error": """❌ Error: {error}
-
-कृपया फिर से try करें।""",
-    
-    "unauthorized": """🔒 Unauthorized Access
-
-यह bot केवल authorized users के लिए है।
-Administrator से contact करें।""",
-}
-
-
 class GSTBot:
-    """Telegram GST Bot handler"""
+    """Professional Telegram GST Bot handler"""
     
     def __init__(self, token: str):
-        """
-        Initialize bot
-        
-        Args:
-            token: Telegram bot token
-        """
+        """Initialize bot"""
         self.token = token
         self.app: Optional[Application] = None
         self.encryption_helper = EncryptionHelper(config.ENCRYPTION_KEY)
     
     def initialize(self) -> bool:
-        """
-        Initialize bot application
-        
-        Returns:
-            True if successful
-        """
+        """Initialize bot application"""
         try:
             self.app = Application.builder().token(self.token).build()
-            
-            # Add handlers
             self._setup_handlers()
-            
-            
             return True
-        
         except Exception as e:
             logger.error(f"Error initializing bot: {e}", exc_info=True)
             return False
     
     def _setup_handlers(self) -> None:
         """Setup bot command and message handlers"""
-        # Command handlers
         self.app.add_handler(CommandHandler("start", self.cmd_start))
-        self.app.add_handler(CommandHandler("help", self.cmd_help))
-        self.app.add_handler(CommandHandler("status", self.cmd_status))
-        self.app.add_handler(CommandHandler("filegst", self.cmd_filegst))
-        self.app.add_handler(CommandHandler("history", self.cmd_history))
-        self.app.add_handler(CommandHandler("settings", self.cmd_settings))
+        self.app.add_handler(CommandHandler("admin", self.cmd_admin))
         
-        # Callback handlers for buttons
-        self.app.add_handler(CallbackQueryHandler(self.btn_no_activity, pattern="^activity_no$"))
-        self.app.add_handler(CallbackQueryHandler(self.btn_has_activity, pattern="^activity_has$"))
-        self.app.add_handler(CallbackQueryHandler(self.btn_cancel, pattern="^cancel$"))
+        # Main menu & common buttons
+        self.app.add_handler(CallbackQueryHandler(self.btn_main_menu, pattern="^main_menu$"))
+        self.app.add_handler(CallbackQueryHandler(self.btn_status, pattern="^gst_status$"))
+        self.app.add_handler(CallbackQueryHandler(self.btn_file_gst, pattern="^file_gst$"))
+        self.app.add_handler(CallbackQueryHandler(self.btn_history, pattern="^filing_history$"))
+        self.app.add_handler(CallbackQueryHandler(self.btn_settings, pattern="^settings$"))
+        self.app.add_handler(CallbackQueryHandler(self.btn_support, pattern="^support$"))
         
-        # Message handler for OTP input
-        self.app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, self.msg_handle))
+        # Settings handlers
+        self.app.add_handler(CallbackQueryHandler(self.btn_toggle_reminders, pattern="^toggle_reminders$"))
+        self.app.add_handler(CallbackQueryHandler(self.btn_toggle_auto_file, pattern="^toggle_auto_file$"))
+        self.app.add_handler(CallbackQueryHandler(self.btn_change_language, pattern="^change_lang$"))
+        self.app.add_handler(CallbackQueryHandler(self.set_language, pattern="^lang_"))
         
-        # Error handler
+        # Admin handlers
+        self.app.add_handler(CallbackQueryHandler(self.admin_stats, pattern="^admin_stats$"))
+        
         self.app.add_error_handler(self.error_handler)
-    
+
     async def check_auth(self, user_id: int) -> bool:
-        """
-        Check if user is authorized
-        
-        Args:
-            user_id: Telegram user ID
-            
-        Returns:
-            True if authorized
-        """
+        """Check if user is authorized"""
         if user_id != config.AUTHORIZED_USER_ID:
             logger.warning(f"Unauthorized access attempt from user {user_id}")
             return False
-        
         return True
-    
+
+    async def get_user_lang(self, telegram_id: int) -> str:
+        """Get user's preferred language"""
+        user = db.get_user(telegram_id)
+        if user:
+            settings = db.get_user_settings(user['user_id'])
+            if settings:
+                return settings.get('language', 'en')
+        return 'en'
+
+    def get_main_keyboard(self, lang: str) -> InlineKeyboardMarkup:
+        """Generate main menu keyboard"""
+        keyboard = [
+            [
+                InlineKeyboardButton(get_text("btn_status", lang), callback_data="gst_status"),
+                InlineKeyboardButton(get_text("btn_file", lang), callback_data="file_gst")
+            ],
+            [
+                InlineKeyboardButton(get_text("btn_history", lang), callback_data="filing_history"),
+                InlineKeyboardButton(get_text("btn_settings", lang), callback_data="settings")
+            ],
+            [
+                InlineKeyboardButton(get_text("btn_support", lang), callback_data="support")
+            ]
+        ]
+        return InlineKeyboardMarkup(keyboard)
+
     async def cmd_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle /start command"""
-        try:
-            user = update.effective_user
-            logger.info(f"/start command received from user {user.id} ({user.username or 'No username'})")
-            
-            if not await self.check_auth(user.id):
-                logger.warning(f"Unauthorized /start attempt from user {user.id}")
-                await update.message.reply_text(MESSAGES["unauthorized"])
-                return
-            
-            # Add or update user in database
-            db.add_user(
-                telegram_id=user.id,
-                username=user.username or "",
-                first_name=user.first_name or "",
-                last_name=user.last_name or ""
-            )
-            
-            db.log_activity(user.id, "bot_start")
-            
-            await update.message.reply_text(MESSAGES["start"])
-            logger.info(f"Bot started successfully by user {user.id}")
-        
-        except Exception as e:
-            logger.error(f"Error in cmd_start: {e}", exc_info=True)
-            await update.message.reply_text(f"{MESSAGES['error'].format(error=str(e))}")
-    
-    async def cmd_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle /help command"""
-        try:
-            user = update.effective_user
-            logger.info(f"/help command received from user {user.id} ({user.username or 'No username'})")
-            
-            if not await self.check_auth(user.id):
-                logger.warning(f"Unauthorized /help attempt from user {user.id}")
-                await update.message.reply_text(MESSAGES["unauthorized"])
-                return
-            
-            await update.message.reply_text(MESSAGES["help"])
-            db.log_activity(user.id, "help_requested")
-            logger.info(f"Help displayed to user {user.id}")
-        
-        except Exception as e:
-            logger.error(f"Error in cmd_help: {e}", exc_info=True)
-            await update.message.reply_text(f"{MESSAGES['error'].format(error=str(e))}")
-    
-    async def cmd_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle /status command"""
-        try:
-            if not await self.check_auth(update.effective_user.id):
-                await update.message.reply_text(MESSAGES["unauthorized"])
-                return
-            
-            await update.message.reply_chat_action(ChatAction.TYPING)
-            
-            user = db.get_user(update.effective_user.id)
-            if not user:
-                await update.message.reply_text("User not found. Please use /start first.")
-                return
-            
-            user_id = user['user_id']
-            filings = db.get_filing_history(user_id, limit=3)
-            
-            if not filings:
-                status_msg = "📊 Status:\n\nअभी तक कोई GST filing नहीं है।"
-            else:
-                status_msg = "📊 Status:\n\n"
-                for filing in filings:
-                    status = filing['status']
-                    emoji = "⏳" if status == "pending" else "✅" if status == "submitted" else "❌"
-                    status_msg += f"{emoji} {filing['month']}/{filing['year']} - {status}\n"
-            
-            await update.message.reply_text(status_msg)
-            db.log_activity(user_id, "status_checked")
-        
-        except Exception as e:
-            logger.error(f"Error in cmd_status: {e}")
-            await update.message.reply_text(f"{MESSAGES['error'].format(error=str(e))}")
-    
-    async def cmd_filegst(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Handle /filegst command"""
-        try:
-            if not await self.check_auth(update.effective_user.id):
-                await update.message.reply_text(MESSAGES["unauthorized"])
-                return ConversationHandler.END
-            
-            user = db.get_user(update.effective_user.id)
-            if not user:
-                await update.message.reply_text("User not found. Please use /start first.")
-                return ConversationHandler.END
-            
-            user_id = user['user_id']
-            
-            # Store workflow context
-            current_month = datetime.now().month
-            current_year = datetime.now().year
-            context.user_data['user_id'] = user_id
-            context.user_data['month'] = current_month
-            context.user_data['year'] = current_year
-            
-            # Ask about activity
-            keyboard = [
-                [InlineKeyboardButton("❌ No Activity", callback_data="activity_no"),
-                 InlineKeyboardButton("✅ Has Activity", callback_data="activity_has")],
-                [InlineKeyboardButton("❌ Cancel", callback_data="cancel")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            
-            await update.message.reply_text(
-                MESSAGES["activity_prompt"],
-                reply_markup=reply_markup
-            )
-            
-            db.log_activity(user_id, "filegst_initiated")
-            
-            return WAITING_FOR_ACTIVITY
-        
-        except Exception as e:
-            logger.error(f"Error in cmd_filegst: {e}")
-            await update.message.reply_text(f"{MESSAGES['error'].format(error=str(e))}")
-            return ConversationHandler.END
-    
-    async def btn_no_activity(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Handle no activity button"""
-        try:
-            query = update.callback_query
-            await query.answer()
-            
-            user_id = context.user_data.get('user_id')
-            month = context.user_data.get('month')
-            year = context.user_data.get('year')
-            
-            await query.edit_message_text(MESSAGES["no_activity"])
-            
-            # Create filing record
-            filing_id = db.create_filing(user_id, f"Month_{month}", year, "nil")
-            if not filing_id:
-                await query.message.reply_text("Error creating filing record.")
-                db.log_activity(user_id, "filing_creation_failed", "", "error")
-                return ConversationHandler.END
-            
-            context.user_data['filing_id'] = filing_id
-            
-            # Start nil return workflow
-            workflow = await get_or_create_workflow(user_id, filing_id, f"Month_{month}", year)
-            success, message = await workflow.start_workflow()
-            
-            if not success:
-                await query.message.reply_text(f"{MESSAGES['error'].format(error=message)}")
-                await cleanup_workflow(filing_id)
-                return ConversationHandler.END
-            
-            if message.startswith("OTP_REQUIRED:"):
-                otp_token = message.split(":")[-1]
-                context.user_data['workflow'] = workflow
-                context.user_data['otp_session_id'] = workflow.otp_session_id
-                
-                await query.message.reply_text(
-                    f"✅ Portal login successful (OTP required)\n\n"
-                    f"OTP: {otp_token}\n\n"
-                    f"{MESSAGES['otp_prompt']}"
-                )
-                
-                return WAITING_FOR_OTP
-            
-            # No OTP needed, proceed to filing
-            return await self._proceed_with_filing(query, context)
-        
-        except Exception as e:
-            logger.error(f"Error in btn_no_activity: {e}")
-            await query.message.reply_text(f"{MESSAGES['error'].format(error=str(e))}")
-            return ConversationHandler.END
-    
-    async def btn_has_activity(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Handle has activity button"""
-        try:
-            query = update.callback_query
-            await query.answer()
-            
-            user_id = context.user_data.get('user_id')
-            db.log_activity(user_id, "activity_reported")
-            
-            await query.edit_message_text(
-                "✅ Activity noted.\n\n"
-                "Detailed entry form coming soon! 🚧\n\n"
-                "For now, please manually file your GST return."
-            )
-            
-            return ConversationHandler.END
-        
-        except Exception as e:
-            logger.error(f"Error in btn_has_activity: {e}")
-            return ConversationHandler.END
-    
-    async def btn_cancel(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Handle cancel button"""
-        try:
-            query = update.callback_query
-            await query.answer()
-            
-            user_id = context.user_data.get('user_id')
-            filing_id = context.user_data.get('filing_id')
-            
-            if filing_id:
-                workflow = context.user_data.get('workflow')
-                if workflow:
-                    await workflow.cancel_workflow()
-                    await cleanup_workflow(filing_id)
-            
-            await query.edit_message_text("❌ Operation cancelled.")
-            
-            if user_id:
-                db.log_activity(user_id, "filing_cancelled")
-            
-            return ConversationHandler.END
-        
-        except Exception as e:
-            logger.error(f"Error in btn_cancel: {e}")
-            return ConversationHandler.END
-    
-    async def msg_handle(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Handle text messages"""
-        try:
-            user = update.effective_user
-            message_text = update.message.text
-            
-            # Log all incoming messages
-            logger.info(f"Message received from user {user.id} ({user.username or 'No username'}): {message_text}")
-            
-            if not await self.check_auth(user.id):
-                logger.warning(f"Unauthorized message from user {user.id}")
-                await update.message.reply_text(MESSAGES["unauthorized"])
-                return ConversationHandler.END
-            
-            user_id = context.user_data.get('user_id')
-            
-            # Check if waiting for OTP
-            if context._state.get("waiting_for") == WAITING_FOR_OTP or "workflow" in context.user_data:
-                logger.info(f"OTP input received from user {user.id}")
-                return await self._handle_otp_input(update, context)
-            
-            # Default response for non-command messages
-            await update.message.reply_text("I don't understand that command. Use /help to see available commands.")
-            return ConversationHandler.END
-        
-        except Exception as e:
-            logger.error(f"Error in msg_handle: {e}", exc_info=True)
-            await update.message.reply_text(f"{MESSAGES['error'].format(error=str(e))}")
-            return ConversationHandler.END
-    
-    async def _handle_otp_input(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Handle OTP input from user"""
-        try:
-            otp = update.message.text.strip()
-            user_id = context.user_data.get('user_id')
-            workflow = context.user_data.get('workflow')
-            
-            if not workflow:
-                await update.message.reply_text("Session expired. Please try /filegst again.")
-                return ConversationHandler.END
-            
-            # Remove the OTP message for security
-            try:
-                await update.message.delete()
-            except:
-                pass
-            
-            await update.message.reply_text("OTP verify हो रहा है...⏳")
-            
-            # Submit OTP
-            success, message = await workflow.submit_otp(otp)
-            
-            if not success:
-                await update.message.reply_text(f"{MESSAGES['error'].format(error=message)}")
-                return WAITING_FOR_OTP
-            
-            # Proceed with filing
-            return await self._proceed_with_filing(update, context)
-        
-        except Exception as e:
-            logger.error(f"Error in _handle_otp_input: {e}")
-            await update.message.reply_text(f"{MESSAGES['error'].format(error=str(e))}")
-            return ConversationHandler.END
-    
-    async def _proceed_with_filing(self, update, context: ContextTypes.DEFAULT_TYPE) -> int:
-        """Proceed with nil return filing"""
-        try:
-            workflow = context.user_data.get('workflow')
-            user_id = context.user_data.get('user_id')
-            filing_id = context.user_data.get('filing_id')
-            
-            if not workflow:
-                await update.message.reply_text("Session expired. Please try /filegst again.")
-                return ConversationHandler.END
-            
-            await update.message.reply_text("Nil Return file हो रहा है...⏳")
-            
-            # File nil return
-            success, message = await workflow.file_nil_return()
-            
-            if not success:
-                await update.message.reply_text(f"{MESSAGES['error'].format(error=message)}")
-                await cleanup_workflow(filing_id)
-                return ConversationHandler.END
-            
-            # Success message
-            success_msg = MESSAGES["success"].format(
-                month=workflow.month,
-                year=workflow.year,
-                arn=workflow.arn,
-                date=datetime.now().strftime("%d-%m-%Y %H:%M")
-            )
-            
-            await update.message.reply_text(success_msg)
-            
-            # Cleanup
-            await cleanup_workflow(filing_id)
-            
-            return ConversationHandler.END
-        
-        except Exception as e:
-            logger.error(f"Error in _proceed_with_filing: {e}")
-            await update.message.reply_text(f"{MESSAGES['error'].format(error=str(e))}")
-            return ConversationHandler.END
-    
-    async def cmd_history(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle /history command"""
-        try:
-            if not await self.check_auth(update.effective_user.id):
-                await update.message.reply_text(MESSAGES["unauthorized"])
-                return
-            
-            user = db.get_user(update.effective_user.id)
-            if not user:
-                await update.message.reply_text("User not found. Please use /start first.")
-                return
-            
-            user_id = user['user_id']
-            filings = db.get_filing_history(user_id, limit=12)
-            
-            if not filings:
-                await update.message.reply_text("📋 History:\n\nकोई GST filing history नहीं है।")
-                return
-            
-            history_msg = "📋 GST Filing History:\n\n"
-            for idx, filing in enumerate(filings, 1):
-                status_emoji = "✅" if filing['status'] == "submitted" else "❌" if filing['status'] == "failed" else "⏳"
-                history_msg += (
-                    f"{idx}. {filing['month']}/{filing['year']}\n"
-                    f"   Status: {status_emoji} {filing['status']}\n"
-                    f"   ARN: {filing['arn'] or '—'}\n\n"
-                )
-            
-            await update.message.reply_text(history_msg)
-            db.log_activity(user_id, "history_viewed")
-        
-        except Exception as e:
-            logger.error(f"Error in cmd_history: {e}")
-            await update.message.reply_text(f"{MESSAGES['error'].format(error=str(e))}")
-    
-    async def cmd_settings(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle /settings command"""
-        try:
-            if not await self.check_auth(update.effective_user.id):
-                await update.message.reply_text(MESSAGES["unauthorized"])
-                return
-            
-            user = db.get_user(update.effective_user.id)
-            if not user:
-                await update.message.reply_text("User not found. Please use /start first.")
-                return
-            
-            user_id = user['user_id']
-            settings = db.get_user_settings(user_id)
-            
-            if not settings:
-                await update.message.reply_text("Settings not found.")
-                return
-            
-            settings_msg = f"""⚙️ Settings:
+        user = update.effective_user
+        if not await self.check_auth(user.id):
+            await update.message.reply_text(get_text("unauthorized", "en"))
+            return
 
-📅 Reminder Day: {settings['reminder_day']}
-⏰ Reminder Time: {settings['reminder_time']}
-🔔 Notifications: {'✅ ON' if settings['notification_enabled'] else '❌ OFF'}
-🤖 Auto-file Nil: {'✅ ON' if settings['auto_file_nil'] else '❌ OFF'}
-🌐 Language: {settings['language']}
-
-Settings update feature coming soon! 🚧"""
-            
-            await update.message.reply_text(settings_msg)
-            db.log_activity(user_id, "settings_viewed")
+        db.add_user(user.id, user.username, user.first_name, user.last_name)
+        lang = await self.get_user_lang(user.id)
         
-        except Exception as e:
-            logger.error(f"Error in cmd_settings: {e}")
-            await update.message.reply_text(f"{MESSAGES['error'].format(error=str(e))}")
-    
+        await update.message.reply_text(
+            get_text("welcome", lang),
+            reply_markup=self.get_main_keyboard(lang),
+            parse_mode=ParseMode.MARKDOWN
+        )
+
+    async def btn_main_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle main menu button"""
+        query = update.callback_query
+        await query.answer()
+        lang = await self.get_user_lang(query.from_user.id)
+        
+        await query.edit_message_text(
+            get_text("welcome", lang),
+            reply_markup=self.get_main_keyboard(lang),
+            parse_mode=ParseMode.MARKDOWN
+        )
+
+    async def btn_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Show current GST status"""
+        query = update.callback_query
+        await query.answer()
+        lang = await self.get_user_lang(query.from_user.id)
+        
+        status_text = f"{get_text('status_title', lang)}\n\n"
+        status_text += f"🏢 *Business*: {config.BUSINESS_NAME}\n"
+        status_text += f"🆔 *GSTIN*: `{config.GSTIN}`\n"
+        status_text += f"📅 *Next Filing*: 20th {datetime.now().strftime('%B')}"
+        
+        keyboard = [[InlineKeyboardButton(get_text("btn_back", lang), callback_data="main_menu")]]
+        await query.edit_message_text(status_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.MARKDOWN)
+
+    async def btn_settings(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Handle settings menu"""
+        query = update.callback_query
+        await query.answer()
+        user_id = query.from_user.id
+        lang = await self.get_user_lang(user_id)
+        
+        user_data = db.get_user(user_id)
+        settings = db.get_user_settings(user_data['user_id'])
+        
+        rem_status = "✅ ON" if settings['reminder_enabled'] else "❌ OFF"
+        auto_status = "✅ ON" if settings['auto_file_nil'] else "❌ OFF"
+        
+        settings_text = (
+            f"{get_text('settings_title', lang)}\n\n"
+            f"🔔 *Reminders*: {rem_status}\n"
+            f"🤖 *Auto-File*: {auto_status}\n"
+            f"🌐 *Language*: {lang.upper()}\n"
+            f"📅 *Reminder Day*: {settings['reminder_day']}\n"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton(f"🔔 Reminders: {rem_status}", callback_data="toggle_reminders")],
+            [InlineKeyboardButton(f"🤖 Auto-File: {auto_status}", callback_data="toggle_auto_file")],
+            [InlineKeyboardButton(get_text("btn_lang", lang), callback_data="change_lang")],
+            [InlineKeyboardButton(get_text("btn_back", lang), callback_data="main_menu")]
+        ]
+        
+        await query.edit_message_text(settings_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.MARKDOWN)
+
+    async def btn_change_language(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Language selection menu"""
+        query = update.callback_query
+        await query.answer()
+        lang = await self.get_user_lang(query.from_user.id)
+        
+        keyboard = [
+            [InlineKeyboardButton("English 🇺🇸", callback_data="lang_en")],
+            [InlineKeyboardButton("Hindi 🇮🇳", callback_data="lang_hi")],
+            [InlineKeyboardButton(get_text("btn_back", lang), callback_data="settings")]
+        ]
+        await query.edit_message_text("🌐 *Select Language / भाषा चुनें*", reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.MARKDOWN)
+
+    async def set_language(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Update language preference"""
+        query = update.callback_query
+        new_lang = query.data.split("_")[1]
+        user_id = query.from_user.id
+        
+        user_data = db.get_user(user_id)
+        db.update_user_settings(user_data['user_id'], language=new_lang)
+        
+        await query.answer(f"Language updated to {new_lang.upper()}")
+        await self.btn_settings(update, context)
+
+    async def btn_toggle_reminders(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Toggle reminder setting"""
+        query = update.callback_query
+        user_id = query.from_user.id
+        user_data = db.get_user(user_id)
+        settings = db.get_user_settings(user_data['user_id'])
+        
+        new_val = not settings['reminder_enabled']
+        db.update_user_settings(user_data['user_id'], reminder_enabled=new_val)
+        
+        await query.answer("Reminder status updated")
+        await self.btn_settings(update, context)
+
+    async def btn_toggle_auto_file(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Toggle auto-file setting"""
+        query = update.callback_query
+        user_id = query.from_user.id
+        user_data = db.get_user(user_id)
+        settings = db.get_user_settings(user_data['user_id'])
+        
+        new_val = not settings['auto_file_nil']
+        db.update_user_settings(user_data['user_id'], auto_file_nil=new_val)
+        
+        await query.answer("Auto-file status updated")
+        await self.btn_settings(update, context)
+
+    async def btn_support(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Show support info"""
+        query = update.callback_query
+        await query.answer()
+        lang = await self.get_user_lang(query.from_user.id)
+        
+        support_text = get_text("support_info", lang, business_name=config.BUSINESS_NAME, gstin=config.GSTIN)
+        keyboard = [[InlineKeyboardButton(get_text("btn_back", lang), callback_data="main_menu")]]
+        await query.edit_message_text(support_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.MARKDOWN)
+
+    async def btn_history(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Show filing history"""
+        query = update.callback_query
+        await query.answer()
+        user_id = query.from_user.id
+        lang = await self.get_user_lang(user_id)
+        
+        user_data = db.get_user(user_id)
+        history = db.get_filing_history(user_data['user_id'], limit=5)
+        
+        history_text = f"{get_text('history_title', lang)}\n\n"
+        if not history:
+            history_text += get_text("no_history", lang)
+        else:
+            for f in history:
+                icon = "✅" if f['status'] == 'success' else "⏳"
+                history_text += f"{icon} *{f['month']} {f['year']}*: {f['status'].upper()}\n"
+                if f['arn']: history_text += f"   └ ARN: `{f['arn']}`\n"
+        
+        keyboard = [[InlineKeyboardButton(get_text("btn_back", lang), callback_data="main_menu")]]
+        await query.edit_message_text(history_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.MARKDOWN)
+
+    async def btn_file_gst(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Initiate filing process"""
+        query = update.callback_query
+        await query.answer("Filing process starting...")
+        await query.edit_message_text("🔄 *Starting Nil Return process...*\nPlease wait.", parse_mode=ParseMode.MARKDOWN)
+
+    async def cmd_admin(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Admin panel command"""
+        if not await self.check_auth(update.effective_user.id):
+            return
+            
+        lang = await self.get_user_lang(update.effective_user.id)
+        keyboard = [
+            [InlineKeyboardButton("📊 View Stats", callback_data="admin_stats")],
+            [InlineKeyboardButton("📢 Broadcast Message", callback_data="admin_broadcast")],
+            [InlineKeyboardButton(get_text("btn_back", lang), callback_data="main_menu")]
+        ]
+        await update.message.reply_text(get_text("admin_panel", lang), reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.MARKDOWN)
+
+    async def admin_stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Show admin stats"""
+        query = update.callback_query
+        await query.answer()
+        
+        conn = db.get_connection()
+        user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+        filing_count = conn.execute("SELECT COUNT(*) FROM gst_filings WHERE status='success'").fetchone()[0]
+        conn.close()
+        
+        stats_text = (
+            "📊 *System Statistics*\n\n"
+            f"👥 *Total Users*: {user_count}\n"
+            f"✅ *Successful Filings*: {filing_count}\n"
+            f"⏱ *Uptime*: Active"
+        )
+        keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="main_menu")]]
+        await query.edit_message_text(stats_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.MARKDOWN)
+
     async def error_handler(self, update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Handle errors"""
+        """Handle errors professionally"""
         logger.error(f"Update {update} caused error {context.error}")
-    
+        if isinstance(update, Update) and update.effective_message:
+            await update.effective_message.reply_text("❌ *An error occurred.*\nPlease try again later or contact support.", parse_mode=ParseMode.MARKDOWN)
+
     def run(self) -> None:
         """Run the bot"""
         try:
@@ -568,87 +310,40 @@ Settings update feature coming soon! 🚧"""
                 return
             
             logger.info("Starting bot polling...")
-            
-            # Start scheduler in background
             scheduler.start()
-            logger.info("Scheduler started successfully")
-            
-            # Start polling with error handling
-            logger.info("Bot is running and waiting for updates...")
             self.app.run_polling(drop_pending_updates=True)
-        
         except Exception as e:
             logger.error(f"Error running bot: {e}", exc_info=True)
-        
         finally:
-            logger.info("Shutting down bot...")
             scheduler.stop()
-            logger.info("Scheduler stopped")
-    
+
     def stop(self) -> None:
         """Stop the bot"""
-        try:
-            if self.app:
-                # In polling mode, we usually don't need to manually stop 
-                # if we're using run_polling() as it handles its own shutdown
-                pass
-            
-            scheduler.stop()
-            logger.info("Bot stopped")
-        
-        except Exception as e:
-            logger.error(f"Error stopping bot: {e}")
+        scheduler.stop()
+        logger.info("Bot stopped")
 
-
-# Global bot instance
 bot: Optional[GSTBot] = None
 
-
 async def initialize_bot(token: str) -> bool:
-    """Initialize global bot instance"""
     global bot
-    try:
-        bot = GSTBot(token)
-        return bot.initialize()
-    except Exception as e:
-        logger.error(f"Error initializing bot: {e}")
-        return False
-
+    bot = GSTBot(token)
+    return bot.initialize()
 
 def run_bot() -> None:
-    """Run global bot instance"""
     global bot
-    if bot:
-        bot.run()
-
+    if bot: bot.run()
 
 def stop_bot() -> None:
-    """Stop global bot instance"""
     global bot
-    if bot:
-        bot.stop()
-
+    if bot: bot.stop()
 
 async def send_reminder_message(user_id: int) -> None:
-    """Send reminder message to user"""
+    """Send professional reminder message"""
     try:
-        if not bot or not bot.app:
-            logger.error("Bot not initialized")
-            return
-        
-        message = (
-            "🔔 GST Return Reminder\n\n"
-            "यह महीने की GST return filing deadline आ गया है।\n\n"
-            "अगर कोई sales/purchases नहीं है तो nil return file कर दो:\n\n"
-            "/filegst - Nil return file करने के लिए"
-        )
-        
-        await bot.app.bot.send_message(
-            chat_id=user_id,
-            text=message
-        )
-        
-        logger.info(f"Reminder sent to user {user_id}")
-    
+        if not bot or not bot.app: return
+        lang = await bot.get_user_lang(user_id)
+        msg = "🔔 *GST Return Reminder*\n\nYour monthly filing is due. Please file your Nil return now." if lang == 'en' else "🔔 *GST रिटर्न रिमाइंडर*\n\nआपकी मासिक फाइलिंग बकाया है। कृपया अपना Nil रिटर्न अभी भरें।"
+        keyboard = [[InlineKeyboardButton("📄 File Now", callback_data="file_gst")]]
+        await bot.app.bot.send_message(chat_id=user_id, text=msg, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode=ParseMode.MARKDOWN)
     except Exception as e:
         logger.error(f"Error sending reminder: {e}")
