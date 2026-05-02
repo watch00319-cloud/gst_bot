@@ -1,3 +1,4 @@
+
 """
 Main application entry point for GST Bot
 Initializes and runs the Telegram bot with Railway hosting support

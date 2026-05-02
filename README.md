@@ -143,7 +143,7 @@ python app.py
 ## Environment Variables ⚙️
 
 | Variable | Required | Description | Example |
-|----------|----------|-------------|---------|
+|----------|----------|-------------|---------| 
 | `TELEGRAM_BOT_TOKEN` | ✅ | Telegram bot token from @BotFather | `123456:ABC...` |
 | `AUTHORIZED_USER_ID` | ✅ | Your Telegram user ID | `123456789` |
 | `GST_PORTAL_USERNAME` | ✅ | GST portal login username | `username@email.com` |
